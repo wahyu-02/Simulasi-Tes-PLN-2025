@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simulasi Tes Lengkap — Sederhana</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* Tipografi sederhana */
+    body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+    /* Feedback states (simple, accessible) */
+    .option-btn.correct { background-color: #0f766e; color: white; border-color: #0f766e; }
+    .option-btn.incorrect { background-color: #b91c1c; color: white; border-color: #b91c1c; }
+    .option-btn.skipped { background-color: #92400e; color: white; border-color: #92400e; }
+    /* Non-selectable area for question text */
+    .no-select { user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
+    /* Make hidden screens not render */
+    .screen { display: none; }
+    .screen.active { display: block; }
+  </style>
+</head>
+<body class="min-h-screen bg-white text-gray-800 flex items-start justify-center p-6">
+  <div id="app" class="w-full max-w-2xl border border-gray-200 rounded-sm overflow-hidden">
+    <!-- 1. Pilih Jenis Tes -->
+    <div id="type-screen" class="screen p-6 active">
+      <h1 class="text-2xl font-semibold text-gray-900 mb-4 text-center">Pilih Jenis Tes</h1>
+      <div class="space-y-3">
+        <button class="w-full text-left p-4 border border-gray-200 rounded-sm bg-gray-50 hover:bg-gray-100" onclick="selectTestType('numerik')">
+          <div class="text-sm font-medium">Tes Numerik</div>
+          <div class="text-xs text-gray-600">Kemampuan berhitung dan deret angka</div>
+        </button>
+        <button class="w-full text-left p-4 border border-gray-200 rounded-sm bg-gray-50 hover:bg-gray-100" onclick="selectTestType('silogisme')">
+          <div class="text-sm font-medium">Tes Silogisme</div>
+          <div class="text-xs text-gray-600">Penalaran dan kesimpulan</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. Pilih Paket Soal -->
+    <div id="package-screen" class="screen p-6">
+      <button onclick="showScreen('type-screen')" class="text-xs text-gray-700 hover:underline mb-4">&larr; Kembali</button>
+      <h2 class="text-xl font-semibold text-gray-900 mb-4 text-center" id="package-title">Pilih Paket Soal</h2>
+      <div class="grid grid-cols-3 gap-3">
+        <button class="p-3 border border-gray-200 rounded-sm bg-white text-center" onclick="selectPackage('paketA')">
+          <div class="text-lg font-semibold">A</div>
+          <div class="text-xs text-gray-600">Paket A</div>
+        </button>
+        <button class="p-3 border border-gray-200 rounded-sm bg-white text-center" onclick="selectPackage('paketB')">
+          <div class="text-lg font-semibold">B</div>
+          <div class="text-xs text-gray-600">Paket B</div>
+        </button>
+        <button class="p-3 border border-gray-200 rounded-sm bg-white text-center" onclick="selectPackage('paketC')">
+          <div class="text-lg font-semibold">C</div>
+          <div class="text-xs text-gray-600">Paket C</div>
+        </button>
+      </div>
+    </div>
+
+    <!-- 3. Instruksi -->
+    <div id="instructions-screen" class="screen p-6 text-center">
+      <h2 class="text-2xl font-semibold text-gray-900 mb-2" id="instructions-title">Simulasi Tes</h2>
+      <p class="text-sm text-gray-700 mb-4" id="instructions-subtitle">Anda akan mengerjakan 25 soal.</p>
+      <ul class="text-left text-xs text-gray-600 list-disc list-inside mb-4 space-y-1">
+        <li>Waktu per soal: <strong>30 detik</strong></li>
+        <li>Jika waktu habis, soal dianggap terlewat</li>
+        <li>Tidak ada pengurangan nilai</li>
+      </ul>
+
+      <button id="start-button" class="w-full py-2 px-3 border border-gray-800 bg-gray-900 text-white text-sm rounded-sm" >
+        Mulai Tes
+      </button>
+      <button onclick="showScreen('package-screen')" class="w-full mt-2 py-2 px-3 border border-gray-200 bg-white text-sm rounded-sm">
+        Ganti Paket
+      </button>
+    </div>
+
+    <!-- 4. Kuis -->
+    <div id="quiz-screen" class="screen p-6 no-select">
+      <div class="flex items-center justify-between mb-4">
+        <div class="text-sm font-medium">Soal <span id="question-number">1</span> / 25</div>
+        <div id="timer-container" class="text-sm font-semibold px-2 py-1 rounded-sm bg-gray-100 border border-gray-200">
+          Sisa: <span id="timer">30</span>s
+        </div>
+      </div>
+
+      <div id="question-container" class="mb-4 p-4 border border-gray-200 rounded-sm bg-white min-h-[84px]">
+        <p id="question-prompt" class="text-xs text-gray-600 mb-1">Lanjutkan deret angka:</p>
+        <h2 id="question-text" class="text-lg font-semibold text-gray-900">...</h2>
+      </div>
+
+      <div id="options-container" class="grid grid-cols-1 gap-2">
+        <!-- opsi di-generate JS -->
+      </div>
+
+      <button id="next-button" class="w-full mt-4 py-2 border border-gray-800 bg-gray-900 text-white text-sm rounded-sm hidden">
+        Soal Berikutnya
+      </button>
+    </div>
+
+    <!-- 5. Hasil -->
+    <div id="result-screen" class="screen p-6 text-center">
+      <h2 class="text-2xl font-semibold text-gray-900 mb-2">Tes Selesai</h2>
+      <p class="text-sm text-gray-700 mb-4">Hasil untuk <span id="result-title" class="font-medium"></span>:</p>
+
+      <div class="grid grid-cols-3 gap-3 mb-4 text-sm">
+        <div class="p-3 border border-gray-200 rounded-sm">
+          <div class="text-lg font-bold" id="correct-count">0</div>
+          <div class="text-xs text-gray-600">Benar</div>
+        </div>
+        <div class="p-3 border border-gray-200 rounded-sm">
+          <div class="text-lg font-bold" id="incorrect-count">0</div>
+          <div class="text-xs text-gray-600">Salah</div>
+        </div>
+        <div class="p-3 border border-gray-200 rounded-sm">
+          <div class="text-lg font-bold" id="skipped-count">0</div>
+          <div class="text-xs text-gray-600">Terlewat</div>
+        </div>
+      </div>
+
+      <div class="p-4 border border-gray-200 rounded-sm mb-4">
+        <div class="text-xs text-gray-600">Total Skor</div>
+        <div class="text-3xl font-bold text-gray-900" id="final-score">0</div>
+      </div>
+
+      <button id="restart-button" class="w-full py-2 border border-gray-800 bg-gray-900 text-white text-sm rounded-sm">
+        Ulangi Tes
+      </button>
+      <button id="main-menu-button" class="w-full mt-2 py-2 border border-gray-200 bg-white text-sm rounded-sm">
+        Kembali ke Menu Utama
+      </button>
+    </div>
+  </div>
+
+    <script>
+        // --- Kumpulan Data Soal (Total 150 Soal) ---
+        const allQuestions = {
+            numerik: {
+                paketA: [
+                    // Soal 1-25 dari PDF
+                    { q: "13-10-6-8-9-5-2-..?", o: ["1", "5", "0", "3"], a: "1" },
+                    { q: "31-18-47-65-113-178-291-..?", o: ["469", "459", "479", "409"], a: "469" },
+                    { q: "51-24-27-72-72-36-38-..?", o: ["45", "40", "36", "47"], a: "45" },
+                    { q: "5-6-9-14-21-22-25-..?", o: ["30", "28", "32", "35"], a: "30" },
+                    { q: "7-4-9-10-6-3-6-..?", o: ["8", "5", "9", "7"], a: "8" },
+                    { q: "33-11-22-15-15-5-10-..?", o: ["3", "5", "7", "2"], a: "3" },
+                    { q: "6-11-7-10-8-13-9-..?", o: ["12", "11", "10", "14"], a: "12" },
+                    { q: "15-61-30-15-30-120-60-..?", o: ["120", "240", "60", "100"], a: "120" },
+                    { q: "10-8-16-12-6-12-24-..?", o: ["8", "10", "6", "12"], a: "8" },
+                    { q: "6-12-21-23-18-36-63-..?", o: ["65", "68", "70", "63"], a: "65" },
+                    { q: "22-18-81-79-97-93-39-..?", o: ["37", "73", "35", "33"], a: "37" },
+                    { q: "2-6-15-31-56-92-141-..?", o: ["205", "195", "201", "215"], a: "205" },
+                    { q: "37-41-14-12-24-28-82-..?", o: ["80", "84", "164", "78"], a: "80" },
+                    { q: "11-13-31-34-43-45-54-..?", o: ["57", "75", "59", "56"], a: "57" },
+                    { q: "18-11-21-23-36-52-81-..?", o: ["98", "89", "101", "95"], a: "98" },
+                    { q: "6-7-5-9-5-6-4-..?", o: ["8", "0", "7", "5"], a: "8" },
+                    { q: "11-4-8-6-8-3-7-..?", o: ["7", "6", "8", "5"], a: "7" },
+                    { q: "4-13-32-72-135-228-357-..?", o: ["525", "515", "505", "535"], a: "525" },
+                    { q: "4-9-34-25-136-48-355-..?", o: ["78", "87", "71", "75"], a: "78" },
+                    { q: "13-17-71-71-17-20-24-..?", o: ["27", "28", "25", "30"], a: "27" },
+                    { q: "11-8-8-15-15-13-11-..?", o: ["8", "11", "9", "14"], a: "8" },
+                    { q: "3-10-29-66-127-219-346-..?", o: ["515", "512", "518", "509"], a: "515" },
+                    { q: "44-36-30-26-24-17-11-..?", o: ["6", "5", "7", "4"], a: "6" },
+                    { q: "15-16-19-16-11-12-14-..?", o: ["4", "8", "10", "16"], a: "4" },
+                    { q: "5-1-2-8-8-5-6-..?", o: ["12", "7", "10", "13"], a: "12" }
+                ],
+                paketB: [
+                    // 25 Soal Numerik Buatan
+                    { q: "10-20-30-40-50-..?", o: ["60", "55", "70", "65"], a: "60" },
+                    { q: "5-10-15-20-25-..?", o: ["30", "35", "40", "28"], a: "30" },
+                    { q: "2-4-8-16-32-..?", o: ["64", "48", "60", "128"], a: "64" },
+                    { q: "100-90-80-70-60-..?", o: ["50", "40", "55", "45"], a: "50" },
+                    { q: "1-1-2-3-5-8-..?", o: ["13", "11", "12", "10"], a: "13" },
+                    { q: "1-4-9-16-25-..?", o: ["36", "30", "40", "49"], a: "36" },
+                    { q: "2-3-5-7-11-..?", o: ["13", "12", "14", "15"], a: "13" }, // Bilangan prima
+                    { q: "10-11-13-16-20-..?", o: ["25", "24", "26", "23"], a: "25" }, // +1 +2 +3 +4 +5
+                    { q: "90-85-79-72-64-..?", o: ["55", "56", "54", "57"], a: "55" }, // -5 -6 -7 -8 -9
+                    { q: "1-2-4-8-16-..?", o: ["32", "24", "30", "36"], a: "32" },
+                    { q: "3-6-12-24-48-..?", o: ["96", "90", "86", "72"], a: "96" },
+                    { q: "81-27-9-3-..?", o: ["1", "0", "1/3", "2"], a: "1" }, // /3
+                    { q: "1-5-2-10-3-15-..?", o: ["4", "5", "20", "25"], a: "4" }, // Larik 1,2,3,4. Larik 5,10,15,20
+                    { q: "Z-Y-X-W-V-..?", o: ["U", "T", "S", "A"], a: "U" },
+                    { q: "A-C-E-G-I-..?", o: ["K", "J", "L", "M"], a: "K" },
+                    { q: "1-10-2-20-3-30-..?", o: ["4", "40", "5", "50"], a: "4" },
+                    { q: "2-5-10-17-26-..?", o: ["37", "35", "38", "36"], a: "37" }, // n^2 + 1
+                    { q: "0-3-8-15-24-..?", o: ["35", "30", "36", "34"], a: "35" }, // n^2 - 1
+                    { q: "10-12-11-13-12-14-..?", o: ["13", "15", "10", "16"], a: "13" }, // +2 -1 +2 -1 +2 -1
+                    { q: "5-5-10-10-15-15-..?", o: ["20", "15", "25", "10"], a: "20" },
+                    { q: "1-3-9-27-..?", o: ["81", "54", "108", "36"], a: "81" },
+                    { q: "1-2-6-24-120-..?", o: ["720", "600", "240", "1000"], a: "720" }, // x2 x3 x4 x5 x6
+                    { q: "100-99-97-94-90-..?", o: ["85", "86", "84", "88"], a: "85" }, // -1 -2 -3 -4 -5
+                    { q: "3-4-7-11-18-..?", o: ["29", "25", "30", "28"], a: "29" }, // Fibonacci
+                    { q: "10-2-8-2-6-2-..?", o: ["4", "2", "0", "5"], a: "4" } // Larik 10,8,6,4. Larik 2,2,2
+                ],
+                paketC: [
+                    // 25 Soal Numerik Buatan
+                    { q: "3-8-13-18-23-..?", o: ["28", "27", "29", "30"], a: "28" }, // +5
+                    { q: "4-8-16-32-64-..?", o: ["128", "100", "120", "130"], a: "128" }, // x2
+                    { q: "1-8-27-64-..?", o: ["125", "100", "150", "216"], a: "125" }, // n^3
+                    { q: "1-2-4-7-11-..?", o: ["16", "15", "17", "18"], a: "16" }, // +1 +2 +3 +4 +5
+                    { q: "10-30-50-70-..?", o: ["90", "80", "100", "110"], a: "90" },
+                    { q: "9-10-12-15-19-..?", o: ["24", "23", "25", "26"], a: "24" }, // +1 +2 +3 +4 +5
+                    { q: "50-48-44-38-30-..?", o: ["20", "22", "18", "24"], a: "20" }, // -2 -4 -6 -8 -10
+                    { q: "A-B-D-G-K-..?", o: ["P", "O", "N", "M"], a: "P" }, // +1 +2 +3 +4 +5
+                    { q: "1-1-2-2-3-3-..?", o: ["4", "2", "5", "6"], a: "4" },
+                    { q: "1-4-2-8-3-12-..?", o: ["4", "16", "5", "10"], a: "4" }, // 1,2,3,4 dan 4,8,12,16
+                    { q: "10-1-9-2-8-3-..?", o: ["7", "4", "6", "5"], a: "7" },
+                    { q: "2-4-6-8-10-..?", o: ["12", "11", "13", "14"], a: "12" },
+                    { q: "3-3-6-9-15-..?", o: ["24", "21", "27", "30"], a: "24" }, // Fibonacci
+                    { q: "100-50-25-12.5-..?", o: ["6.25", "5", "7.5", "10"], a: "6.25" }, // /2
+                    { q: "1-3-2-4-3-5-..?", o: ["4", "2", "5", "6"], a: "4" }, // +2 -1 +2 -1 +2 -1
+                    { q: "10-20-22-44-46-..?", o: ["92", "90", "48", "94"], a: "92" }, // x2 +2 x2 +2 x2
+                    { q: "1-10-3-20-5-30-..?", o: ["7", "40", "6", "8"], a: "7" },
+                    { q: "6-7-9-12-16-..?", o: ["21", "20", "22", "23"], a: "21" }, // +1 +2 +3 +4 +5
+                    { q: "5-6-11-17-28-..?", o: ["45", "40", "50", "39"], a: "45" }, // Fibonacci
+                    { q: "1-5-9-13-17-..?", o: ["21", "20", "22", "23"], a: "21" }, // +4
+                    { q: "8-4-2-1-..?", o: ["0.5", "0", "0.25", "0.1"], a: "0.5" },
+                    { q: "1-1-2-4-3-9-..?", o: ["4", "3", "16", "5"], a: "4" }, // 1,2,3,4 dan 1,4,9,16 (n^2)
+                    { q: "A-Z-B-Y-C-..?", o: ["X", "D", "W", "E"], a: "X" },
+                    { q: "2-6-10-14-18-..?", o: ["22", "20", "24", "26"], a: "22" }, // +4
+                    { q: "4-5-7-10-14-..?", o: ["19", "18", "20", "21"], a: "19" } // +1 +2 +3 +4 +5
+                ]
+            },
+            silogisme: {
+                paketA: [
+                    // 21 Soal dari PDF + 4 Buatan
+                    { q: "Semua buah mengandung vitamin. Beberapa minuman tidak mengandung vitamin. Kesimpulan: Sebagian jenis buah jeruk tidak dijadikan minuman.", a: "Salah" },
+                    { q: "Semua sayuran organik bertumbuh subur. Sebagian tumbuhan non organik bertumbuh dengan subur. Pak Narto mempunyai kebun organik. Sebagian kebun sayur di desa makmur dikelola secara non organik. Kesimpulan: Pak Narto tidak memiliki kebun sayur organik di Desa Makmur.", a: "Salah" },
+                    { q: "Tidak ada satupun mahasiswa sastra prancis fasih berbahasa jerman. Sebagian mahasiswa sastra jerman fasih berbahasa inggris. Setiap mahasiswa yang fasih berbahasa jepang pasti fasih inggris. Kesimpulan: Sebagian mahasiswa sastra prancis mampu berbahasa jepang.", a: "Salah" },
+                    { q: "Tidak ada satupun sepeda motor listrik di kota Y memakai bensin. Budi tinggal di kota Y. Sepeda motor di kota Y adalah buatan negara J. Sepeda motor listrik buatan negara S lebih baik daripada buatan negara J. Kesimpulan: Sepeda motor listrik budi bukan buatan negara S.", a: "Tidak ada kesimpulan" },
+                    { q: "Tidak ada satupun lahan di Desa x bertumbuh subur. Tidak ada satupun jenis sayuran dapat ditanam dilahan di Desa X. Pak parjo memiliki lahan di Desa X. Sebagian jenis umbi dapat tumbuh di lahan gersang. Kesimpulan: Lahan di desa x tidak dapat ditanami tumbuhan.", a: "Salah" },
+                    { q: "Semua buah mengandung vitamin. Beberapa minuman tidak mengandung vitamin. Beberapa vitamin tidak selalu menjadi minuman. Kesimpulan: Sebagian minuman yang berasal dari buah tidak mengandung vitamin.", a: "Salah" },
+                    { q: "Semua sayuran organik bertumbuh subur. Sebagian tumbuhan non organik bertumbuh dengan subur. Pak Narto mempunyai kebun organik. Sebagian kebun sayur di Desa Makmur dikelola secara non organik. Kesimpulan: Sebagian sayuran organik di Desa Makmur tidak tumbuh.", a: "Salah" },
+                    { q: "Tidak ada satupun mahasiswa sastra prancis fasih berbahasa jerman. Sebagian mahasiswa sastra jerman fasih berbahasa inggris. Setiap mahasiswa yang fasih berbahasa jepang pasti fasih inggris. Kesimpulan: Mahasiswa sastra jerman tidak fasih berbahasa jepang.", a: "Tidak ada kesimpulan" },
+                    { q: "Anwar lebih pandai dari rudi. Parjo kalah pandai dari danu. Rudi sama pandai dengan Fahri. Kesimpulan: Anwar tidak lebih pandai dari Parjo dan Fahri tidak lebih pandai Parjo.", a: "Salah" },
+                    { q: "Semua materi pada diklat A semua penting. Beberapa materi diklat B sangat penting. Sebagian isi buku X menjadi bahan materi diklat A. Semua isi buku Z menjadi bahan diklat B. Kesimpulan: Semua isi buku Z penting.", a: "Salah" }, // Ini soal 15 di PDF, saya pindah ke 10 agar urut
+                    { q: "Sebagian pengusaha adalah kolektor antik. Mustopo adalah seorang pensiunan. Sebagian kolektor mobil antik adalah pensiunan pegawai. Kesimpulan: Sebagian pensiuan pegawai tinggal di Desa.", a: "Tidak ada kesimpulan" },
+                    { q: "Semua guru di SD X adalah sarjana. Wawan adalah lulusan SMA. Kesimpulan: Wawan tidak dapat bekerja di SD X.", a: "Benar" }, // Asumsi bekerja = menjadi guru
+                    { q: "Anwar lebih pandai dari rudi. Parjo kalah pandai dari danu. Rudi sama pandai dengan Fahri. Kesimpulan: Danu lebih pandai diantara semuanya.", a: "Benar" },
+                    { q: "Sebagian pengusaha adalah kolektor antik. Mustopo adalah seorang pensiunan. Sebagian kolektor mobil antik adalah pensiunan pegawai. Kesimpulan: Sebagian pengusaha tinggal di Desa.", a: "Tidak ada kesimpulan" },
+                    { q: "Semua materi pada diklat A semua penting. Beberapa materi diklat B sangat penting. Sebagian isi buku X menjadi bahan materi diklat A. Kesimpulan: Semua isi buku Z penting.", a: "Salah" }, // Duplikat dari no 10, tapi saya ambil dari PDF urutan 15
+                    { q: "Semua guru di SD X adalah sarjana. Budi bekerja di SD X. Kesimpulan: Budi adalah seorang sarjana.", a: "Benar" }, // Asumsi Budi adalah guru
+                    { q: "Semua materi pada diklat A semua penting. Beberapa materi diklat B sangat penting. Sebagian isi buku X menjadi bahan materi diklat A. Kesimpulan: Penyusun materi diklat A adalah orang penting.", a: "Tidak ada kesimpulan" },
+                    { q: "Abi lebih tua dari budi. Putra sedikit lbh muda budi. Linda adalah adik budi. Kesimpulan: Budi adalah yang termuda.", a: "Salah" }, // Soal 18 PDF tidak lengkap, saya tambahkan kesimpulan
+                    { q: "Tidak ada satupun lahan di Desa X bertumbuh subur. Tidak ada satupun jenis sayuran dapat ditanam dilahan di Desa X. Pak parjo memiliki lahan di Desa X. Kesimpulan: Pak Parjo berjualan sayuran di Desa X.", a: "Salah" },
+                    { q: "Tidak ada satupun sepeda motor listrik di kota Y memakai bensin. Budi tinggal di kota Y. Sepeda motor di kota Y adalah buatan negara J. Kesimpulan: Budi memiliki sepeda motor listrik.", a: "Tidak ada kesimpulan" },
+                    { q: "Anwar lebih pandai dari rudi. Parjo kalah pandai dari danu. Rudi sama pandai dengan Fahri. Kesimpulan: Anwar tidak lebih pandai dari Parjo.", a: "Benar" },
+                    // 4 Soal Buatan untuk melengkapi 25
+                    { q: "Semua ikan hidup di air. Gurame adalah ikan. Kesimpulan: Gurame hidup di air.", a: "Benar" },
+                    { q: "Semua mahasiswa memakai kemeja. Budi adalah mahasiswa. Kesimpulan: Budi memakai celana.", a: "Tidak ada kesimpulan" },
+                    { q: "Jika hari hujan, jalanan basah. Hari ini jalanan basah. Kesimpulan: Hari ini hujan.", a: "Salah" }, // Bisa jadi disiram
+                    { q: "Beberapa siswa suka matematika. Semua siswa suka biologi. Kesimpulan: Beberapa siswa suka matematika dan biologi.", a: "Benar" }
+                ],
+                paketB: [
+                    // 25 Soal Silogisme Buatan
+                    { q: "Semua A adalah B. Semua B adalah C. Kesimpulan: Semua A adalah C.", a: "Benar" },
+                    { q: "Semua A adalah B. Beberapa B adalah C. Kesimpulan: Beberapa A adalah C.", a: "Salah" },
+                    { q: "Tidak ada A yang B. Semua C adalah A. Kesimpulan: Tidak ada C yang B.", a: "Benar" },
+                    { q: "Beberapa A adalah B. Semua B adalah C. Kesimpulan: Semua A adalah C.", a: "Salah" },
+                    { q: "Jika P maka Q. P terjadi. Kesimpulan: Q terjadi.", a: "Benar" }, // Modus Ponens
+                    { q: "Jika P maka Q. Q terjadi. Kesimpulan: P terjadi.", a: "Salah" }, // Kesalahan converse
+                    { q: "Jika P maka Q. Bukan Q terjadi. Kesimpulan: Bukan P terjadi.", a: "Benar" }, // Modus Tollens
+                    { q: "Jika P maka Q. Bukan P terjadi. Kesimpulan: Bukan Q terjadi.", a: "Salah" }, // Kesalahan inverse
+                    { q: "Semua mamalia menyusui. Kucing adalah mamalia. Kesimpulan: Kucing menyusui.", a: "Benar" },
+                    { q: "Semua burung bisa terbang. Penguin adalah burung. Kesimpulan: Penguin bisa terbang.", a: "Salah" }, // Premis 1 salah
+                    { q: "Beberapa politisi jujur. Semua yang jujur disukai. Kesimpulan: Beberapa politisi disukai.", a: "Benar" },
+                    { q: "Semua guru adalah pahlawan. Budi adalah guru. Kesimpulan: Budi adalah pahlawan.", a: "Benar" },
+                    { q: "Tidak ada koruptor yang baik. Beberapa pejabat adalah koruptor. Kesimpulan: Beberapa pejabat tidak baik.", a: "Benar" },
+                    { q: "Semua murid SMAN 1 pintar. Ani bukan murid SMAN 1. Kesimpulan: Ani tidak pintar.", a: "Salah" },
+                    { q: "Semua handphone adalah gadget. Beberapa gadget mahal. Kesimpulan: Semua handphone mahal.", a: "Salah" },
+                    { q: "Lampu menyala jika ada listrik. Lampu tidak menyala. Kesimpulan: Tidak ada listrik.", a: "Benar" },
+                    { q: "Hanya jika belajar, Rian akan lulus. Rian lulus. Kesimpulan: Rian belajar.", a: "Benar" },
+                    { q: "Hanya jika belajar, Rian akan lulus. Rian belajar. Kesimpulan: Rian akan lulus.", a: "Salah" }, // Belum tentu
+                    { q: "Semua perawat ramah. Sebagian yang ramah adalah bidan. Kesimpulan: Sebagian perawat adalah bidan.", a: "Salah" },
+                    { q: "Semua awan mengandung air. Tidak ada air yang berwarna. Kesimpulan: Tidak ada awan yang berwarna.", a: "Benar" },
+                    { q: "Roti lebih enak dari kerupuk. Kerupuk lebih enak dari biskuit. Kesimpulan: Roti lebih enak dari biskuit.", a: "Benar" },
+                    { q: "A > B. B = C. C < D. Kesimpulan: A > D.", a: "Tidak ada kesimpulan" },
+                    { q: "A > B. B > C. C = D. Kesimpulan: A > D.", a: "Benar" },
+                    { q: "Semua pembohong tidak dipercaya. Budi dipercaya. Kesimpulan: Budi bukan pembohong.", a: "Benar" },
+                    { q: "Beberapa rumah di kota besar. Semua yang di kota besar rawan macet. Kesimpulan: Beberapa rumah rawan macet.", a: "Benar" }
+                ],
+                paketC: [
+                    // 25 Soal Silogisme Buatan
+                    { q: "Semua logam memuai jika dipanaskan. Besi adalah logam. Kesimpulan: Besi memuai jika dipanaskan.", a: "Benar" },
+                    { q: "Semua atlet berbadan sehat. Adi adalah atlet. Kesimpulan: Adi berbadan sehat.", a: "Benar" },
+                    { q: "Beberapa bunga wangi. Semua yang wangi disukai. Kesimpulan: Beberapa bunga disukai.", a: "Benar" },
+                    { q: "Tidak ada sayur yang manis. Gula itu manis. Kesimpulan: Gula bukan sayur.", a: "Benar" },
+                    { q: "Semua mobil berbahan bakar bensin. Beberapa mobil berwarna merah. Kesimpulan: Beberapa mobil merah berbahan bakar bensin.", a: "Benar" },
+                    { q: "Jika ada gula, ada semut. Di meja ada semut. Kesimpulan: Di meja ada gula.", a: "Salah" },
+                    { q: "Jika rajin, maka sukses. Andi tidak rajin. Kesimpulan: Andi tidak sukses.", a: "Salah" },
+                    { q: "Semua laptop adalah komputer. Sebagian komputer perlu listrik. Kesimpulan: Sebagian laptop perlu listrik.", a: "Benar" },
+                    { q: "Tidak ada A yang B. Tidak ada B yang C. Kesimpulan: Tidak ada A yang C.", a: "Salah" },
+                    { q: "Beberapa A adalah B. Beberapa B adalah C. Kesimpulan: Beberapa A adalah C.", a: "Salah" },
+                    { q: "Semua novel adalah buku. Sebagian novel membosankan. Kesimpulan: Sebagian buku membosankan.", a: "Benar" },
+                    { q: "Ani lebih tinggi dari Budi. Budi lebih tinggi dari Cita. Kesimpulan: Cita lebih pendek dari Ani.", a: "Benar" },
+                    { q: "Hasan lebih kaya dari Ali. Ali lebih miskin dari Budi. Kesimpulan: Hasan lebih kaya dari Budi.", a: "Tidak ada kesimpulan" },
+                    { q: "Semua mamalia tidak bertelur. Buaya bertelur. Kesimpulan: Buaya bukan mamalia.", a: "Benar" },
+                    { q: "Semua murid ujian. Sebagian murid tidak lulus. Kesimpulan: Sebagian yang ujian tidak lulus.", a: "Benar" },
+                    { q: "Semua HP canggih. Tidak ada yang canggih yang murah. Kesimpulan: Tidak ada HP yang murah.", a: "Benar" },
+                    { q: "Beberapa dokter adalah pria. Semua pria memakai celana. Kesimpulan: Beberapa dokter memakai celana.", a: "Benar" },
+                    { q: "Semua siswa membawa buku. Beberapa siswa membawa tas. Kesimpulan: Beberapa siswa membawa buku dan tas.", a: "Benar" },
+                    { q: "Semua siswa membawa buku. Beberapa siswa membawa tas. Kesimpulan: Semua siswa yang membawa tas, membawa buku.", a: "Benar" },
+                    { q: "Semua siswa membawa buku. Beberapa siswa membawa tas. Kesimpulan: Semua siswa yang membawa buku, membawa tas.", a: "Salah" },
+                    { q: "A = B. B > C. C < D. Kesimpulan: A > C.", a: "Benar" },
+                    { q: "A = B. B > C. C < D. Kesimpulan: A > D.", a: "Tidak ada kesimpulan" },
+                    { q: "Jika lampu mati, ruangan gelap. Ruangan gelap. Kesimpulan: Lampu mati.", a: "Salah" },
+                    { q: "Semua ilmuwan kreatif. Beberapa orang kreatif adalah seniman. Kesimpulan: Beberapa ilmuwan adalah seniman.", a: "Salah" },
+                    { q: "Tidak ada ikan yang bisa berjalan. Manusia bisa berjalan. Kesimpulan: Manusia bukan ikan.", a: "Benar" }
+                ]
+            }
+        };
+
+        // --- Variabel State Aplikasi ---
+        let currentTestType = '';
+        let currentPackage = '';
+        let currentQuestionSet = [];
+        let currentQuestionIndex = 0;
+        let stats = { correct: 0, incorrect: 0, skipped: 0 };
+        let timerInterval = null;
+        let timeRemaining = 30;
+        let answerSelected = false;
+
+        // --- Referensi Elemen DOM ---
+        const screens = document.querySelectorAll('.screen');
+        const packageTitle = document.getElementById('package-title');
+        const instructionsTitle = document.getElementById('instructions-title');
+        const instructionsSubtitle = document.getElementById('instructions-subtitle');
+        const resultTitle = document.getElementById('result-title');
+        
+        const startButton = document.getElementById('start-button');
+        const restartButton = document.getElementById('restart-button');
+        const nextButton = document.getElementById('next-button');
+        const mainMenuButton = document.getElementById('main-menu-button');
+
+        const questionNumberEl = document.getElementById('question-number');
+        const timerEl = document.getElementById('timer');
+        const timerContainerEl = document.getElementById('timer-container');
+        const questionPromptEl = document.getElementById('question-prompt');
+        const questionTextEl = document.getElementById('question-text');
+        const optionsContainerEl = document.getElementById('options-container');
+
+        const correctCountEl = document.getElementById('correct-count');
+        const incorrectCountEl = document.getElementById('incorrect-count');
+        const skippedCountEl = document.getElementById('skipped-count');
+        const finalScoreEl = document.getElementById('final-score');
+
+        // --- Fungsi Navigasi & Logika Kuis ---
+
+        /**
+         * Menampilkan layar tertentu dan menyembunyikan yang lain
+         */
+        function showScreen(screenId) {
+            screens.forEach(screen => {
+                screen.classList.remove('active');
+            });
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        /**
+         * Dipanggil saat memilih jenis tes (Numerik/Silogisme)
+         */
+        window.selectTestType = function(type) {
+            currentTestType = type;
+            const title = (type === 'numerik') ? 'Tes Numerik' : 'Tes Silogisme';
+            packageTitle.textContent = `Pilih Paket ${title}`;
+            showScreen('package-screen');
+        }
+
+        /**
+         * Dipanggil saat memilih paket (A/B/C)
+         */
+        window.selectPackage = function(pkg) {
+            currentPackage = pkg;
+            currentQuestionSet = allQuestions[currentTestType][currentPackage];
+            
+            const typeName = (currentTestType === 'numerik') ? 'Numerik' : 'Silogisme';
+            const pkgName = (pkg === 'paketA') ? 'Paket A' : (pkg === 'paketB') ? 'Paket B' : 'Paket C';
+            
+            instructionsTitle.textContent = `Tes ${typeName}`;
+            instructionsSubtitle.textContent = `Anda akan mengerjakan 25 soal ${pkgName}.`;
+            resultTitle.textContent = `Tes ${typeName} - ${pkgName}`; // Untuk layar hasil nanti
+            
+            showScreen('instructions-screen');
+        }
+
+        /**
+         * Memulai kuis
+         */
+        function startQuiz() {
+            currentQuestionIndex = 0;
+            stats = { correct: 0, incorrect: 0, skipped: 0 };
+            answerSelected = false;
+            
+            showScreen('quiz-screen');
+            showQuestion();
+        }
+
+        /**
+         * Menampilkan soal dan pilihan jawaban
+         */
+        function showQuestion() {
+            resetState();
+            
+            const question = currentQuestionSet[currentQuestionIndex];
+            
+            questionNumberEl.textContent = currentQuestionIndex + 1;
+            
+            if (currentTestType === 'numerik') {
+                questionPromptEl.textContent = 'Lanjutkan deret angka berikut:';
+                questionTextEl.textContent = question.q;
+                
+                // Acak pilihan jawaban numerik
+                const shuffledOptions = [...question.o].sort(() => Math.random() - 0.5);
+                shuffledOptions.forEach(option => {
+                    createOptionButton(option, question.a);
+                });
+                
+            } else { // Silogisme
+                questionPromptEl.textContent = 'Tariklah kesimpulan dari premis berikut:';
+                // Pisahkan premis dan kesimpulan jika ada
+                if (question.q.includes("Kesimpulan:")) {
+                    const parts = question.q.split("Kesimpulan:");
+                    questionTextEl.innerHTML = `<span class="font-normal text-gray-700 text-xl">${parts[0]}</span><br><strong class="text-indigo-600">Kesimpulan:</strong> ${parts[1]}`;
+                } else {
+                     questionTextEl.textContent = question.q;
+                }
+
+                // Pilihan silogisme selalu sama
+                createOptionButton("Benar", question.a);
+                createOptionButton("Salah", question.a);
+                createOptionButton("Tidak ada kesimpulan", question.a);
+            }
+            
+            startTimer();
+        }
+
+        /**
+         * Membuat tombol pilihan jawaban
+         */
+        function createOptionButton(optionText, correctAnswer) {
+            const button = document.createElement('button');
+            button.textContent = optionText;
+            button.classList.add('option-btn', 'w-full', 'text-left', 'p-4', 'border-2', 'border-gray-300', 'rounded-lg', 'text-lg', 'transition', 'duration-200', 'hover:bg-gray-100', 'hover:border-indigo-400', 'focus:outline-none', 'focus:ring-2', 'focus:ring-indigo-300');
+            // Jika ini soal silogisme, buat tombol full-width di mobile dan 3 kolom di desktop
+            if (currentTestType === 'silogisme') {
+                 button.classList.add('md:col-span-1');
+                 button.classList.remove('md:col-span-2', 'text-left');
+                 button.classList.add('text-center');
+                 // Ubah grid container
+                 optionsContainerEl.classList.remove('md:grid-cols-2');
+                 optionsContainerEl.classList.add('md:grid-cols-3');
+            } else {
+                 optionsContainerEl.classList.add('md:grid-cols-2');
+                 optionsContainerEl.classList.remove('md:grid-cols-3');
+            }
+            button.addEventListener('click', () => selectAnswer(button, optionText, correctAnswer));
+            optionsContainerEl.appendChild(button);
+        }
+
+        /**
+         * Mengatur ulang state visual sebelum soal baru
+         */
+        function resetState() {
+            answerSelected = false;
+            timeRemaining = 30;
+            timerEl.textContent = timeRemaining;
+            optionsContainerEl.innerHTML = ''; // Hapus pilihan lama
+            nextButton.classList.add('hidden');
+            timerContainerEl.classList.remove('bg-red-200', 'animate-pulse');
+            timerContainerEl.classList.add('bg-red-100');
+        }
+
+        /**
+         * Memulai timer 30 detik
+         */
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                timerEl.textContent = timeRemaining;
+                
+                if (timeRemaining <= 10 && timeRemaining > 0) {
+                    timerContainerEl.classList.add('animate-pulse');
+                }
+
+                if (timeRemaining === 0) {
+                    skipQuestion();
+                }
+            }, 1000);
+        }
+
+        /**
+         * Dipanggil ketika waktu habis
+         */
+        function skipQuestion() {
+            if (answerSelected) return;
+            
+            clearInterval(timerInterval);
+            answerSelected = true;
+            stats.skipped++;
+
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                btn.classList.add('skipped');
+                btn.disabled = true;
+            });
+            
+            showNextButton(100);
+        }
+
+        /**
+         * Dipanggil ketika pengguna memilih jawaban
+         */
+        function selectAnswer(selectedButton, selectedOption, correctAnswer) {
+            if (answerSelected) return;
+            
+            clearInterval(timerInterval);
+            answerSelected = true;
+
+            const isCorrect = (selectedOption === correctAnswer);
+            
+            if (isCorrect) {
+                stats.correct++;
+                selectedButton.classList.add('correct');
+            } else {
+                stats.incorrect++;
+                selectedButton.classList.add('incorrect');
+                // Tampilkan jawaban yang benar
+                document.querySelectorAll('.option-btn').forEach(btn => {
+                    if (btn.textContent === correctAnswer) {
+                        btn.classList.add('correct');
+                    }
+                });
+            }
+            
+            document.querySelectorAll('.option-btn').forEach(btn => {
+                btn.disabled = true;
+                btn.classList.add('cursor-not-allowed');
+            });
+            
+            showNextButton(100);
+        }
+        
+        /**
+         * Menampilkan tombol "Soal Berikutnya"
+         */
+         function showNextButton(delay) {
+            setTimeout(() => {
+                nextButton.classList.remove('hidden');
+                if (currentQuestionIndex === currentQuestionSet.length - 1) {
+                    nextButton.textContent = 'Lihat Hasil';
+                } else {
+                    nextButton.textContent = 'Soal Berikutnya';
+                }
+            }, delay);
+         }
+
+        /**
+         * Lanjut ke soal berikutnya atau tampilkan hasil
+         */
+        function nextQuestion() {
+            currentQuestionIndex++;
+            if (currentQuestionIndex < currentQuestionSet.length) {
+                showQuestion();
+            } else {
+                showResults();
+            }
+        }
+
+        /**
+         * Menampilkan layar hasil akhir
+         */
+        function showResults() {
+            showScreen('result-screen');
+            
+            correctCountEl.textContent = stats.correct;
+            incorrectCountEl.textContent = stats.incorrect;
+            skippedCountEl.textContent = stats.skipped;
+            
+            const score = Math.round((stats.correct / currentQuestionSet.length) * 100);
+            finalScoreEl.textContent = score;
+        }
+
+        /**
+         * Kembali ke menu utama (pilih jenis tes)
+         */
+         function goToMainMenu() {
+            showScreen('type-screen');
+         }
+
+        // --- Event Listeners ---
+        startButton.addEventListener('click', startQuiz);
+        restartButton.addEventListener('click', startQuiz); // Ulangi tes yang sama
+        mainMenuButton.addEventListener('click', goToMainMenu);
+        nextButton.addEventListener('click', nextQuestion);
+
+    </script>
+</body>
+</html>
